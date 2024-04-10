@@ -104,6 +104,10 @@ def _map_batch(batch: Any, map_fn: Callable) -> Any:
         Collections: The result of applying ``map_fn`` on each element of the ``batch``.
         The type of ``batch`` is preserved.
     """
+    # check if named tuple
+    if isinstance(batch, tuple) and hasattr(batch, "_fields"):
+        return batch._replace(**{field: map_fn(getattr(batch, field)) for field in batch._fields})
+    
     if isinstance(batch, Mapping):
         return {k: _map_batch(v, map_fn) for k, v in batch.items()}
 

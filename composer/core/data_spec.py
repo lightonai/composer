@@ -220,24 +220,24 @@ class DataSpec:
                 ))
             world_size = dist.get_world_size()
             # Check for Distributed Sampler if not using IterableDataset on more than 1 GPU
-            if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
-                is_sampler_distributed = dataloader.sampler and isinstance(dataloader.sampler, DistributedSampler)
-                is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
-                    dataloader.batch_sampler,
-                    DistributedSampler,
-                )
-                if not is_sampler_distributed and not is_batch_sampler_distributed:
-                    raise ValueError(
-                        f'The world_size({world_size}) > 1 but dataloader does not use '
-                        'DistributedSampler. This will cause all ranks to train on the same '
-                        'data, removing any benefit from multi-GPU training. To resolve this, '
-                        'create a Dataloader with DistributedSampler. For example, '
-                        'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
-                        'Alternatively, the process group can be instantiated with '
-                        'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
-                        'directly be created with DataLoader(..., sampler=DistributedSampler(...)). '
-                        'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.',
-                    )
+            # if world_size > 1 and not isinstance(dataloader.dataset, torch.utils.data.IterableDataset):
+            #     is_sampler_distributed = isinstance(dataloader.sampler, DistributedSampler)
+            #     is_batch_sampler_distributed = dataloader.batch_sampler is not None and isinstance(
+            #         dataloader.batch_sampler,
+            #         DistributedSampler,
+            #     )
+            #     if not is_sampler_distributed and not is_batch_sampler_distributed:
+            #         raise ValueError(
+            #             f'The world_size({world_size}) > 1 but dataloader does not use '
+            #             'DistributedSampler. This will cause all ranks to train on the same '
+            #             'data, removing any benefit from multi-GPU training. To resolve this, '
+            #             'create a Dataloader with DistributedSampler. For example, '
+            #             'DataLoader(..., sampler=composer.utils.dist.get_sampler(...)).'
+            #             'Alternatively, the process group can be instantiated with '
+            #             'composer.utils.dist.instantiate_dist(...) and DistributedSampler can '
+            #             'directly be created with DataLoader(..., sampler=DistributedSampler(...)). '
+            #             'For more information, see https://pytorch.org/docs/stable/data.html#torch.utils.data.distributed.DistributedSampler.',
+            #         )
 
     def _default_device_transforms(self, batch: Batch):
         return batch

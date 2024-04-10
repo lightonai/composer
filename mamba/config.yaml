@@ -1,0 +1,94 @@
+model:
+  vocab_size: 65024
+  d_model: 2688
+  n_layer: 28
+  fsdp_layer_wrap: true
+  activation_checkpointing: true
+data:
+  global_batch_size: 896
+  micro_batch_size: 7
+  eval_batch_size: 8
+  seq_len: 4096
+  num_workers: 2
+  prefetch_factor: 2
+  n_total_tokens: 400039358022
+  n_samples_to_skip: 0
+  text_paths:
+  - path: /home/shared/data/mamba-v1/redpajama-v2-sample-100B-30-shards__en__dedup-gopher-c4.train.gig.npy
+    weight: 0.1958102424029292
+    order: 0
+  - path: /home/shared/data/mamba-v1/redpajama-v2-sample-100B-300-shards__fr__dedup-gopher-c4.train.gig.npy
+    weight: 0.2435774764483081
+    order: 0
+  - path: /home/shared/data/mamba-v1/redpajama-v1__arxiv.train.gig.npy
+    weight: 0.06881509406753439
+    order: 0
+  - path: /home/shared/data/mamba-v1/redpajama-v1__book.train.gig.npy
+    weight: 0.0645727662391144
+    order: 0
+  - path: /home/shared/data/mamba-v1/redpajama-v1__wikipedia__en.train.gig.npy
+    weight: 0.011879004374711205
+    order: 0
+  - path: /home/shared/data/mamba-v1/redpajama-v1__wikipedia__fr.train.gig.npy
+    weight: 0.004529268094916691
+    order: 0
+  code_paths:
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__c.train.gig.npy
+    weight: 0.05312904006018117
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__cpp.train.gig.npy
+    weight: 0.04221288109874257
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__go.train.gig.npy
+    weight: 0.023724917365450952
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__java.train.gig.npy
+    weight: 0.06074433609020946
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__javascript.train.gig.npy
+    weight: 0.12794023184135123
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__php.train.gig.npy
+    weight: 0.04813379439015361
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__python.train.gig.npy
+    weight: 0.048003497655707966
+    order: 0
+  - path: /home/shared/data/mamba-v1/the-stack-dedup__rust.train.gig.npy
+    weight: 0.006927449870688963
+    order: 0
+  code_percentage: 0.4108161483724859
+  text_percentage: 0.5891838516275141
+optimizer:
+  lr: 0.00045
+  beta1: 0.9
+  beta2: 0.95
+  weight_decay: 0.1
+scheduler:
+  name: wsd
+  t_warmup: 1006878720tok
+  t_max: 10068787200tok
+  t_decay: 1006878720tok
+  alpha_f: 0.1
+fsdp:
+  sharding_strategy: FULL_SHARD
+  process_group: null
+  backward_prefetch: BACKWARD_PRE
+  activation_checkpointing_reentrant: true
+  activation_checkpointing: true
+  limit_all_gathers: false
+  verbose: true
+trainer:
+  cp_interval: 1006878720tok
+  eval_interval: 1006878720tok
+  save_interval: 1006878720tok
+  eval_subset_num_batches: 16
+  save_folder: checkpoints
+  auto_log_hparams: true
+  autoresume: true
+general:
+  project_name: mamba-science
+  full_name: mambaoutai
+  window_size: 10
+  clipping_threshold: 1.0
+  position_weighting: true

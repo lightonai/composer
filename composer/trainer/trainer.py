@@ -51,6 +51,16 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).resolve().parents[2]
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+print(sys.path)
+from mamba import DistributedLinearSampler
+
+
 from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (
     Algorithm,
@@ -409,7 +419,7 @@ def _validate_evaluator(evaluator: Evaluator, device: Device):
     if hasattr(
         evaluator.dataloader,
         'seq_parallel_world_size',
-    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
+    ) and evaluator.dataloader.seq_parallel_world_size > 1 and evaluator.dataloader.device_eval_batch_size * evaluator.dataloader.seq_parallel_world_size != 1:  # type: ignore
         raise ValueError(
             'Sequence parallelism requires a microbatch size of 1 distributed over the sequence parallel group.',
         )
@@ -467,9 +477,9 @@ def _generate_run_name() -> str:
 
 def _get_distributed_sampler(dataloader: DataLoader) -> Optional[DistributedSampler]:
     """Fetch a distributed sampler from a `dataloader` if it exists."""
-    if isinstance(dataloader.batch_sampler, DistributedSampler):
+    if isinstance(dataloader.batch_sampler, (DistributedSampler, DistributedLinearSampler)):
         return dataloader.batch_sampler
-    if isinstance(dataloader.sampler, DistributedSampler):
+    if isinstance(dataloader.sampler, (DistributedSampler, DistributedLinearSampler)):
         return dataloader.sampler
     return None
 
@@ -1550,7 +1560,15 @@ class Trainer:
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             with reproducibility.seed_context(self.state.rank_zero_seed):
-                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+                prepare_fsdp_module(
+                    model,
+                    optimizers,
+                    self.state.fsdp_config,
+                    precision,
+                    device,
+                    auto_microbatching,
+                    self.state.seed,
+                )
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -2268,6 +2286,13 @@ class Trainer:
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
                 self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
+    def _spin_dataloaders(self):
+        if isinstance(self.state.dataloader.sampler, DistributedLinearSampler):
+            self.state.dataloader.sampler.set_global_offset(self.state.timestamp.sample.value)
+            self.state.dataset_resumption['train'] = True
+        else:
+            self._spin_dataloaders_to_cur_epoch()
+            
     def _spin_dataloaders_to_cur_epoch(self):
         """Spin the dataloaders to restore sampler state for current epoch.
 
@@ -2351,7 +2376,7 @@ class Trainer:
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
         if self.spin_dataloaders:
-            self._spin_dataloaders_to_cur_epoch()
+            self._spin_dataloaders()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # Only restore the rng state here if the step in the current epoch is zero.
@@ -2427,6 +2452,10 @@ class Trainer:
                         k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
                     }
                     self.state.total_loss_dict = total_loss_dict
+                    # change name to align with other logging
+                    total_loss_dict = {
+                        k if k != 'loss/train/total' else 'trainer/loss': v for k, v in total_loss_dict.items()
+                    }
                     self.logger.log_metrics(total_loss_dict)
 
                 # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
@@ -2443,6 +2472,11 @@ class Trainer:
                     batch_time,
                 )
 
+                self.logger.log_metrics({
+                    'trainer/seconds_per_batch': batch_time.microseconds / 1E6,
+                    'trainer/tokens_per_second': total_num_tokens / (batch_time.microseconds / 1E6),
+                })
+                                
                 # `now` is actually in the past, but want to include the time it takes to perform this reduction
                 last_wct = now
 
@@ -2659,6 +2693,7 @@ class Trainer:
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
+            self.logger.log_metrics({'trainer/lr': self.state.schedulers[0].get_last_lr()[0]})
             self.first_batch_complete = True
             return total_loss_dict
 
