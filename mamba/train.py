@@ -3,14 +3,14 @@ from torch import optim
 from composer import Trainer
 from composer.algorithms import GradientClipping
 from composer.callbacks import SpeedMonitor
-from composer.core import Evaluator, Precision
+from composer.core import Precision #Evaluator, 
 from composer.loggers import WandBLogger
 from composer.optim import CosineAnnealingWithWarmupScheduler
 from composer.utils import dist
 
 from create_mamba_config import load_config_from_yaml
 from mamba import MambaModel
-from gdr import get_mamba_dataloader
+from datatrove import get_mamba_dataloader
 from scheduler import WarmupStableDecayScheduler
 
 from dataclasses import asdict
@@ -26,7 +26,7 @@ def main():
         fsdp_config,
         trainer_config,
         general_config,
-    ) = load_config_from_yaml("mamba/config.yaml")
+    ) = load_config_from_yaml("mamba/config_mambarabic.yaml")
 
     # build model
     model = MambaModel(
@@ -41,10 +41,12 @@ def main():
     )
     print(f"The model has : {n_params_str} parameters.")
 
-    train_paths = [
-        (pc.path, pc.weight, pc.order)
-        for pc in data_config.code_paths + data_config.text_paths
-    ]
+    # train_paths = [
+    #     (pc.path, pc.weight, pc.order)
+    #     for pc in data_config.code_paths + data_config.text_paths
+    # ]
+
+    train_paths = "s3://mambadata/arabic/tokenization-v1/merged-document/000_Arabic-data-merged.ds"
     print(train_paths)
     # create train dataloader
     train_dataloader = get_mamba_dataloader(
@@ -59,25 +61,25 @@ def main():
         prefetch_factor=data_config.prefetch_factor,
     )
 
-    # create val dataloader
-    french_eval_dataloader = get_mamba_dataloader(
-        path="/home/shared/data/mamba-v1/redpajama-v2-sample-100B-300-shards__fr__dedup-gopher-c4.validation.gig.npy",
-        n_data_parallel=dist.get_world_size(),
-        rank=dist.get_global_rank(),
-        seq_len=data_config.seq_len,
-        batch_size=data_config.eval_batch_size,
-    )
-    english_eval_dataloader = get_mamba_dataloader(
-        path="/home/shared/data/mamba-v1/redpajama-v2-sample-100B-30-shards__en__dedup-gopher-c4.validation.gig.npy",
-        n_data_parallel=dist.get_world_size(),
-        rank=dist.get_global_rank(),
-        seq_len=data_config.seq_len,
-        batch_size=data_config.eval_batch_size,
-    )
-    evaluators = [
-        Evaluator(label="french", dataloader=french_eval_dataloader),
-        Evaluator(label="english", dataloader=english_eval_dataloader),
-    ]
+    # # create val dataloader
+    # french_eval_dataloader = get_mamba_dataloader(
+    #     path="/home/shared/data/mamba-v1/redpajama-v2-sample-100B-300-shards__fr__dedup-gopher-c4.validation.gig.npy",
+    #     n_data_parallel=dist.get_world_size(),
+    #     rank=dist.get_global_rank(),
+    #     seq_len=data_config.seq_len,
+    #     batch_size=data_config.eval_batch_size,
+    # )
+    # english_eval_dataloader = get_mamba_dataloader(
+    #     path="/home/shared/data/mamba-v1/redpajama-v2-sample-100B-30-shards__en__dedup-gopher-c4.validation.gig.npy",
+    #     n_data_parallel=dist.get_world_size(),
+    #     rank=dist.get_global_rank(),
+    #     seq_len=data_config.seq_len,
+    #     batch_size=data_config.eval_batch_size,
+    # )
+    # evaluators = [
+    #     Evaluator(label="french", dataloader=french_eval_dataloader),
+    #     Evaluator(label="english", dataloader=english_eval_dataloader),
+    # ]
 
     # create optimizer
     optimizer = optim.AdamW(
@@ -134,7 +136,7 @@ def main():
         fsdp_config=asdict(fsdp_config),
         precision=Precision.AMP_BF16,
         device_train_microbatch_size=data_config.micro_batch_size,
-        eval_dataloader=evaluators,
+#        eval_dataloader=evaluators,
         eval_interval=trainer_config.eval_interval,
         eval_subset_num_batches=trainer_config.eval_subset_num_batches,
         save_folder=trainer_config.save_folder,

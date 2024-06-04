@@ -1,0 +1,53 @@
+model:
+  vocab_size: 64000
+  d_model: 2688
+  n_layer: 28
+  fsdp_layer_wrap: true
+  activation_checkpointing: true
+data:
+  global_batch_size: 32
+  micro_batch_size: 4
+#  eval_batch_size: 8
+  seq_len: 4096
+  num_workers: 2
+  prefetch_factor: 2
+  n_total_tokens: 400039358022
+  n_samples_to_skip: 0
+  text_paths:
+  - path: s3://mambadata/arabic/tokenization-v1/merged-document/000_Arabic-data-merged.ds
+    weight: 1
+    order: 0
+
+optimizer:
+  lr: 0.00045
+  beta1: 0.9
+  beta2: 0.95
+  weight_decay: 0.1
+scheduler:
+  name: wsd
+  t_warmup: 1006878720tok
+  t_max: 10068787200tok
+  t_decay: 1006878720tok
+  alpha_f: 0.1
+fsdp:
+  sharding_strategy: FULL_SHARD
+  process_group: null
+  backward_prefetch: BACKWARD_PRE
+  activation_checkpointing_reentrant: true
+  activation_checkpointing: true
+  limit_all_gathers: false
+  verbose: true
+trainer:
+  cp_interval: 1006878720tok
+  eval_interval: 1006878720tok
+  save_interval: 1006878720tok
+  eval_subset_num_batches: 16
+  save_folder: checkpoints
+  auto_log_hparams: true
+  autoresume: true
+general:
+  project_name: mamba-science
+  full_name: mambaoutai
+  window_size: 10
+  clipping_threshold: 1.0
+  position_weighting: true

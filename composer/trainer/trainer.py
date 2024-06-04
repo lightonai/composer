@@ -17,7 +17,7 @@ import tempfile
 import textwrap
 import time
 import warnings
-from collections import defaultdict
+#from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import (
@@ -42,7 +42,7 @@ import torch.distributed
 import torch.nn as nn
 import torch.utils.data
 from torch._dynamo import OptimizedModule
-from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.cuda.amp.grad_scaler import GradScaler #_refresh_per_optimizer_state
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._runtime_utils import _post_backward_final_callback
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -367,8 +367,8 @@ def _adjust_device_train_microbatch_size(state: State):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
-    if state.scaler is not None:
-        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+    # if state.scaler is not None:
+    #     state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     _fsdp_reshard_and_cleanup(state.model)
     torch.cuda.empty_cache()
 
