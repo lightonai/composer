@@ -104,32 +104,14 @@ def instantiate_data_config(TEXT_PATHS, CODE_PATHS, N_TOTAL_TOKENS):
     text_weights = [
         (path, get_n_tokens(path) / N_TOTAL_TOKENS, 0) for path in TEXT_PATHS
     ]
-    # text_paths = [
-    #     PathConfig(path=path, weight=weight, order=order)
-    #     for path, weight, order in text_weights
-    # ]
+
     text_paths = [
         PathConfig(path=path)
         for path in text_weights
     ]
 
-    # and CODE_PATHS
-    # total_text_weight = sum(weight for _, weight, _ in text_weights)
-    # total_code_weight = 1 - total_text_weight
-    # code_weights = [(path, get_n_tokens(path), 0) for path in CODE_PATHS]
-    # total_code_tokens = sum(weight for _, weight, _ in code_weights)
-    # code_paths = [
-    #     PathConfig(
-    #         path=path,
-    #         weight=(weight * total_code_weight / total_code_tokens),
-    #         order=order,
-    #     )
-    #     for path, weight, order in code_weights
-    # ]
-
     data_config = DataConfig(
         text_paths=text_paths,
-        # code_paths=code_paths,
     )
 
     return data_config
@@ -143,7 +125,6 @@ def write_config_to_yaml(
     fsdp_config,
     trainer_config,
     general_config,
-    # file_name="config.yaml",
     file_name="config_mambarabic.yaml",
 ):
     config = {
@@ -167,10 +148,9 @@ def load_config_from_yaml(file_name: str = "config_mambarabic.yaml"):
 
     # handle dataconfig separately
     text_paths = [PathConfig(**path) for path in config["data"]["text_paths"]]
-    # code_paths = [PathConfig(**path) for path in config["data"]["code_paths"]]
 
     config["data"]["text_paths"] = text_paths
-    # config["data"]["code_paths"] = code_paths
+
     # don't give post init kwargs to constructor
     data_config = DataConfig(
         **{
