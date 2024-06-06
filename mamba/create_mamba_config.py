@@ -16,6 +16,7 @@ def get_n_tokens(data_path: str):
 class ModelConfig:
     vocab_size: int = 64000
     d_model: int = 1024
+    d_intermediate: int = 0
     n_layer: int = 48
     fsdp_layer_wrap: bool = True
     activation_checkpointing: bool = True
@@ -24,8 +25,8 @@ class ModelConfig:
 @dataclass
 class PathConfig:
     path: str
-    weight: float
-    order: int
+    # weight: float
+    # order: int
 
 
 @dataclass
@@ -38,14 +39,16 @@ class DataConfig:
     prefetch_factor: int = 2
     n_total_tokens: int = 0
     n_samples_to_skip: int = 0
+    max_tokens: int = 0
+    token_size: int = 2
     text_paths: List[PathConfig] = field(default_factory=list)
     code_paths: List[PathConfig] = field(default_factory=list)
     code_percentage: float = field(init=False)
     text_percentage: float = field(init=False)
 
-    def __post_init__(self):
-        # self.code_percentage = sum(p.weight for p in self.code_paths)
-        self.text_percentage = sum(p.weight for p in self.text_paths)
+    # def __post_init__(self):
+    #     # self.code_percentage = sum(p.weight for p in self.code_paths)
+    #     self.text_percentage = sum(p.weight for p in self.text_paths)
 
 
 @dataclass
@@ -101,9 +104,13 @@ def instantiate_data_config(TEXT_PATHS, CODE_PATHS, N_TOTAL_TOKENS):
     text_weights = [
         (path, get_n_tokens(path) / N_TOTAL_TOKENS, 0) for path in TEXT_PATHS
     ]
+    # text_paths = [
+    #     PathConfig(path=path, weight=weight, order=order)
+    #     for path, weight, order in text_weights
+    # ]
     text_paths = [
-        PathConfig(path=path, weight=weight, order=order)
-        for path, weight, order in text_weights
+        PathConfig(path=path)
+        for path in text_weights
     ]
 
     # and CODE_PATHS

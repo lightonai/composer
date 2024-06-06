@@ -8,7 +8,7 @@ from tqdm import trange
 
 from composer.models import ComposerModel
 
-from .gdr import MambaBatch
+from .datatrove import MambaBatch
 
 SEED = 42
 
@@ -19,6 +19,7 @@ class MambaModel(ComposerModel):
         self,
         vocab_size: int,
         d_model: int,
+        d_intermediate: int,
         n_layer: int,
         fsdp_layer_wrap: bool,
         activation_checkpointing: bool,
@@ -28,6 +29,7 @@ class MambaModel(ComposerModel):
         torch.manual_seed(SEED)
         self.backbone = MixerModel(
             d_model=d_model,
+            d_intermediate=d_intermediate,
             n_layer=n_layer,
             vocab_size=vocab_size,
             dtype=dtype,
@@ -41,6 +43,7 @@ class MambaModel(ComposerModel):
 
         self.vocab_size = vocab_size
         self.d_model = d_model
+        self.d_intermediate = d_intermediate
         self.num_layers = n_layer
         self.d_state = self.backbone.layers[0].mixer.d_state
         self.dt_rank = self.backbone.layers[0].mixer.dt_rank

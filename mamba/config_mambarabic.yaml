@@ -1,22 +1,22 @@
 model:
   vocab_size: 64000
   d_model: 2688
+  d_intermediate: 0
   n_layer: 28
   fsdp_layer_wrap: true
   activation_checkpointing: true
 data:
-  global_batch_size: 32
+  global_batch_size: 512
   micro_batch_size: 4
-#  eval_batch_size: 8
-  seq_len: 4096
+  eval_batch_size: 8
+  seq_len: 512
   num_workers: 2
   prefetch_factor: 2
-  n_total_tokens: 400039358022
+  n_total_tokens: 28000000000
   n_samples_to_skip: 0
+  token_size: 2
   text_paths:
-  - path: s3://mambadata/arabic/tokenization-v1/merged-document/000_Arabic-data-merged.ds
-    weight: 1
-    order: 0
+  - path: tokenized_data/000_Arabic-data-merged.ds
 
 optimizer:
   lr: 0.00045
@@ -25,9 +25,9 @@ optimizer:
   weight_decay: 0.1
 scheduler:
   name: wsd
-  t_warmup: 1006878720tok
-  t_max: 10068787200tok
-  t_decay: 1006878720tok
+  t_warmup: 2800000000tok
+  t_max: 28000000000tok
+  t_decay: 2800000000tok
   alpha_f: 0.1
 fsdp:
   sharding_strategy: FULL_SHARD
@@ -38,16 +38,18 @@ fsdp:
   limit_all_gathers: false
   verbose: true
 trainer:
-  cp_interval: 1006878720tok
-  eval_interval: 1006878720tok
-  save_interval: 1006878720tok
+  cp_interval: 2800000000tok
+  eval_interval: 2800000000tok
+  save_interval: 2800000000tok
   eval_subset_num_batches: 16
   save_folder: checkpoints
   auto_log_hparams: true
   autoresume: true
 general:
-  project_name: mamba-science
-  full_name: mambaoutai
+  project_name: mamba-arabic
+  full_name: dry-run-mambarabic-lr-${lr}
   window_size: 10
   clipping_threshold: 1.0
   position_weighting: true
+
+WANDB_API_KEY: "b8980fe0a116f39c874b38200be1bea8530ddb15"
