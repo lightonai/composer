@@ -51,5 +51,3 @@ general:
   window_size: 10
   clipping_threshold: 1.0
   position_weighting: true
-
-WANDB_API_KEY: "b8980fe0a116f39c874b38200be1bea8530ddb15"
