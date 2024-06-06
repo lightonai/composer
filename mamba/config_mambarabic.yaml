@@ -6,8 +6,8 @@ model:
   fsdp_layer_wrap: true
   activation_checkpointing: true
 data:
-  global_batch_size: 512
-  micro_batch_size: 4
+  global_batch_size: 896
+  micro_batch_size: 14
   eval_batch_size: 8
   seq_len: 512
   num_workers: 2
@@ -16,7 +16,7 @@ data:
   n_samples_to_skip: 0
   token_size: 2
   text_paths:
-  - path: tokenized_data/000_Arabic-data-merged.ds
+  - path: /home/data/mambarabic/tokenized_data/000_Arabic-data-merged.ds
 
 optimizer:
   lr: 0.00045
@@ -47,7 +47,7 @@ trainer:
   autoresume: true
 general:
   project_name: mamba-arabic
-  full_name: dry-run-mambarabic-lr-${lr}
+  full_name: dry-run-mambarabic-896-7
   window_size: 10
   clipping_threshold: 1.0
   position_weighting: true

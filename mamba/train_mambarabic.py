@@ -3,7 +3,7 @@ from torch import optim
 from composer import Trainer
 from composer.algorithms import GradientClipping
 from composer.callbacks import SpeedMonitor
-from composer.core import Precision #Evaluator, 
+from composer.core import Evaluator, Precision
 from composer.loggers import WandBLogger
 from composer.optim import CosineAnnealingWithWarmupScheduler
 from composer.utils import dist
@@ -67,6 +67,24 @@ def main():
         token_size=data_config.token_size,
         )
 
+
+    # create val dataloader
+    eval_dataloader = get_mamba_dataloader(
+        path="/home/data/mambarabic/eval/000_Arabic-data-eval-merged.ds",
+        batch_size=data_config.eval_batch_size,
+        seq_len=data_config.seq_len,
+        n_data_parallel=dist.get_world_size(),
+        rank=dist.get_global_rank(),
+        n_samples_to_skip=data_config.n_samples_to_skip,
+        num_workers=data_config.num_workers,
+        prefetch_factor=None,
+        max_tokens=61571512,
+        token_size=data_config.token_size,
+    )
+    evaluator = [
+        Evaluator(label="arabic", dataloader=eval_dataloader),
+    ]
+    
     # create optimizer
     optimizer = optim.AdamW(
         model.parameters(),
@@ -122,7 +140,7 @@ def main():
         fsdp_config=asdict(fsdp_config),
         precision=Precision.AMP_BF16,
         device_train_microbatch_size=data_config.micro_batch_size,
-#        eval_dataloader=evaluators,
+       eval_dataloader=evaluator,
         eval_interval=trainer_config.eval_interval,
         eval_subset_num_batches=trainer_config.eval_subset_num_batches,
         save_folder=trainer_config.save_folder,
