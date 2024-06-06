@@ -36,6 +36,7 @@ def main():
         n_layer=model_config.n_layer,
         fsdp_layer_wrap=model_config.fsdp_layer_wrap,
         activation_checkpointing=model_config.activation_checkpointing,
+        ssm_cfg={'layer': "Mamba2"},
     )
     n_params_str = (
         "{:.1f}".format(sum([p.numel() for p in model.parameters()]) / 1e9) + "B"

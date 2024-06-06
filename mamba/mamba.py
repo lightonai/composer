@@ -23,15 +23,17 @@ class MambaModel(ComposerModel):
         n_layer: int,
         fsdp_layer_wrap: bool,
         activation_checkpointing: bool,
+        ssm_cfg=None,
         dtype=torch.bfloat16,
     ):
         super().__init__()
         torch.manual_seed(SEED)
         self.backbone = MixerModel(
-            d_model=d_model,
-            d_intermediate=d_intermediate,
-            n_layer=n_layer,
-            vocab_size=vocab_size,
+            d_model,
+            n_layer,
+            d_intermediate,
+            vocab_size,
+            ssm_cfg=ssm_cfg,
             dtype=dtype,
             fused_add_norm=True,
             rms_norm=True,
@@ -45,9 +47,9 @@ class MambaModel(ComposerModel):
         self.d_model = d_model
         self.d_intermediate = d_intermediate
         self.num_layers = n_layer
-        self.d_state = self.backbone.layers[0].mixer.d_state
-        self.dt_rank = self.backbone.layers[0].mixer.dt_rank
-        self.d_inner = self.backbone.layers[0].mixer.d_inner
+        # self.d_state = self.backbone.layers[0].mixer.d_state
+        # self.dt_rank = self.backbone.layers[0].mixer.dt_rank
+        # self.d_inner = self.backbone.layers[0].mixer.d_inner
 
         self.fsdp_layer_wrap = fsdp_layer_wrap
         self.activation_checkpointing = activation_checkpointing
@@ -118,35 +120,35 @@ class MambaModel(ComposerModel):
             else {}
         )
 
-    def flops_per_batch(self, batch):
-        """
-        Calculate total number of FLOPs of Mamba based on https://github.com/state-spaces/mamba/issues/110.
-        Terms such as nonlinearities, biases, and layer normalization are omitted (https://arxiv.org/pdf/2001.08361.pdf).
-        Very similar to Chinchilla in that it includes embeddings.
-        """
-        x = batch.input_ids
-        batch_size, seq_len = x.shape
+    # def flops_per_batch(self, batch):
+    #     """
+    #     Calculate total number of FLOPs of Mamba based on https://github.com/state-spaces/mamba/issues/110.
+    #     Terms such as nonlinearities, biases, and layer normalization are omitted (https://arxiv.org/pdf/2001.08361.pdf).
+    #     Very similar to Chinchilla in that it includes embeddings.
+    #     """
+    #     x = batch.input_ids
+    #     batch_size, seq_len = x.shape
 
-        # embeddings (uncomment if you want to include the embeddings in the total flops)
-        # embeddings = 2 * seq_len * vocab_size * d_model
+    #     # embeddings (uncomment if you want to include the embeddings in the total flops)
+    #     # embeddings = 2 * seq_len * vocab_size * d_model
 
-        # selective scan
-        scan = 9 * seq_len * self.d_state * self.d_model
+    #     # selective scan
+    #     scan = 9 * seq_len * self.d_state * self.d_model
 
-        # linear projections
-        in_proj = 2 * seq_len * self.d_model * self.d_inner * 2
-        x_proj = 2 * seq_len * self.d_inner * (self.dt_rank + self.d_state * 2)
-        dt_proj = 2 * seq_len * self.dt_rank * self.d_inner
-        out_proj = 2 * seq_len * self.d_inner * self.d_model
+    #     # linear projections
+    #     in_proj = 2 * seq_len * self.d_model * self.d_inner * 2
+    #     x_proj = 2 * seq_len * self.d_inner * (self.dt_rank + self.d_state * 2)
+    #     dt_proj = 2 * seq_len * self.dt_rank * self.d_inner
+    #     out_proj = 2 * seq_len * self.d_inner * self.d_model
 
-        # output projection
-        projection = 2 * seq_len * self.vocab_size * self.d_model
+    #     # output projection
+    #     projection = 2 * seq_len * self.vocab_size * self.d_model
 
-        forward_flops = (
-            self.num_layers * (in_proj + scan + x_proj + dt_proj + out_proj)
-            + projection
-        )
-        backward_flops = 2 * forward_flops
-        total_flops = forward_flops + backward_flops
+    #     forward_flops = (
+    #         self.num_layers * (in_proj + scan + x_proj + dt_proj + out_proj)
+    #         + projection
+    #     )
+    #     backward_flops = 2 * forward_flops
+    #     total_flops = forward_flops + backward_flops
 
-        return total_flops * batch_size
+    #     return total_flops * batch_size

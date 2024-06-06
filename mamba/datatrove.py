@@ -92,7 +92,7 @@ def get_mamba_dataloader(
     rank: int,
     n_samples_to_skip: int = 0,
     num_workers: int = 0,
-    prefetch_factor: int = 2,
+    prefetch_factor: int | None = 2,
     max_tokens: int = 100000,
     token_size: int = 2,
 ):
