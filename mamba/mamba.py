@@ -14,7 +14,6 @@ SEED = 42
 
 
 class MambaModel(ComposerModel):
-
     def __init__(
         self,
         vocab_size: int,
@@ -37,9 +36,10 @@ class MambaModel(ComposerModel):
             dtype=dtype,
             fused_add_norm=True,
             rms_norm=True,
+            residual_in_fp32=True,
         )
 
-        # convert D and A_log in backbone to same dtype as the rest of model for fsdp compability
+        # convert D and A_log in backbone to same dtype as the rest of model for fsdp compabtility
         self.backbone.to(dtype=dtype)
         self.projection = nn.Linear(d_model, vocab_size, bias=False, dtype=dtype)
 
@@ -85,15 +85,9 @@ class MambaModel(ComposerModel):
     def loss(self, outputs, batch):
         targets = batch.target_ids
 
-        if batch.loss_factors is None:
-            return F.cross_entropy(
-                outputs.transpose(-1, -2), targets, reduction="none"
-            ).mean()
-        else:
-            return (
-                F.cross_entropy(outputs.transpose(-1, -2), targets, reduction="none")
-                * batch.loss_factors
-            ).sum() / batch.loss_norm
+        return F.cross_entropy(
+            outputs.transpose(-1, -2), targets, reduction="none"
+        ).mean()
 
     def eval_forward(self, batch, outputs=None):
         if outputs is not None:

@@ -1,4 +1,5 @@
 from torch import optim
+import torch
 
 from composer import Trainer
 from composer.algorithms import GradientClipping
@@ -8,15 +9,26 @@ from composer.loggers import WandBLogger
 from composer.optim import CosineAnnealingWithWarmupScheduler
 from composer.utils import dist
 
-from create_mamba_config import load_config_from_yaml
+from create_mamba_config import load_config_from_yaml, safe_asdict
 from mamba import MambaModel
 from datatrove import get_mamba_dataloader
 from scheduler import WarmupStableDecayScheduler
-from create_mamba_config import PathConfig
 from dataclasses import asdict
+import argparse
+import gc
+import os
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Read config from YAML file.")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="mamba/configs/config_mambarabic.yaml",
+        help="Path to the config file.",
+    )
+    args = parser.parse_args()
+
     # init configs
     (
         model_config,
@@ -26,7 +38,7 @@ def main():
         fsdp_config,
         trainer_config,
         general_config,
-    ) = load_config_from_yaml("mamba/config_mambarabic.yaml")
+    ) = load_config_from_yaml(args.config)
 
     # build model
     model = MambaModel(
@@ -36,24 +48,22 @@ def main():
         n_layer=model_config.n_layer,
         fsdp_layer_wrap=model_config.fsdp_layer_wrap,
         activation_checkpointing=model_config.activation_checkpointing,
-        ssm_cfg={'layer': "Mamba2"},
+        ssm_cfg={"layer": model_config.ssm_cfg_layer},
     )
+    print(model)
     n_params_str = (
         "{:.1f}".format(sum([p.numel() for p in model.parameters()]) / 1e9) + "B"
     )
     print(f"The model has : {n_params_str} parameters.")
 
-    train_paths = [
-        (pc.path)
-        for pc in data_config.text_paths
-    ]
+    train_paths = [(pc.path) for pc in data_config.text_paths]
 
     train_path = train_paths[0]
-    
-    print(train_path)
-    print(dist.get_world_size())
-    print(data_config.n_total_tokens)
-    
+
+    print("train_path", train_path)
+    print("Number of GPU:s", dist.get_world_size())
+    print("{:.1f}".format(data_config.n_total_tokens / 1e9) + "B tokens")
+
     # create train dataloader
     train_dataloader = get_mamba_dataloader(
         path=train_path,
@@ -66,8 +76,7 @@ def main():
         prefetch_factor=data_config.prefetch_factor,
         max_tokens=data_config.n_total_tokens,
         token_size=data_config.token_size,
-        )
-
+    )
 
     # create val dataloader
     eval_dataloader = get_mamba_dataloader(
@@ -85,7 +94,7 @@ def main():
     evaluator = [
         Evaluator(label="arabic", dataloader=eval_dataloader),
     ]
-    
+
     # create optimizer
     optimizer = optim.AdamW(
         model.parameters(),
@@ -138,16 +147,35 @@ def main():
         max_duration=scheduler_config.t_max,
         loggers=[wandb_logger],
         callbacks=[speed_monitor],
-        fsdp_config=asdict(fsdp_config),
+        # fsdp_config=asdict(fsdp_config),
         precision=Precision.AMP_BF16,
         device_train_microbatch_size=data_config.micro_batch_size,
-       eval_dataloader=evaluator,
+        eval_dataloader=evaluator,
         eval_interval=trainer_config.eval_interval,
         eval_subset_num_batches=trainer_config.eval_subset_num_batches,
         save_folder=trainer_config.save_folder,
         save_interval=trainer_config.save_interval,
         auto_log_hparams=trainer_config.auto_log_hparams,
+        save_num_checkpoints_to_keep=trainer_config.save_num_checkpoints_to_keep,
     )
+
+    # log the config to wandb
+    if os.getenv("WANDB_API_KEY"):
+        import wandb
+
+        if wandb.run:
+            wandb.config.update(safe_asdict(model_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(data_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(optimizer_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(scheduler_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(fsdp_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(trainer_config), allow_val_change=True)
+            wandb.config.update(safe_asdict(general_config), allow_val_change=True)
+
+    # clean memory
+    torch.cuda.empty_cache()
+    gc.collect()
+
     trainer.fit()
 
 

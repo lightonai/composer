@@ -127,7 +127,6 @@ def get_mamba_dataloader(
     num_workers: int = 1,
     prefetch_factor: int = 2,
 ):
-
     collate_fct = partial(collate_mamba_batch, position_weighting=position_weighting)
     dataset = get_dataset(path, seq_len)
     dataloader = DataLoader(
@@ -286,8 +285,9 @@ class DistributedLinearSampler(Sampler):
             rank = dist.get_rank()
         if rank >= num_replicas or rank < 0:
             raise ValueError(
-                "Invalid rank {}, rank should be in the interval"
-                " [0, {}]".format(rank, num_replicas - 1)
+                "Invalid rank {}, rank should be in the interval" " [0, {}]".format(
+                    rank, num_replicas - 1
+                )
             )
         self.dataset = dataset
         self.num_replicas = num_replicas
@@ -343,7 +343,6 @@ def get_num_tokens_in_batch(batch: MambaBatch):
 
 
 def split_batch(batch: MambaBatch, microbatch_size):
-
     per_device_batch_size = get_num_samples_in_batch(batch)
     assert (
         per_device_batch_size % microbatch_size == 0

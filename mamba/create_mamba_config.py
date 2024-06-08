@@ -1,6 +1,6 @@
 import yaml
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from typing import List, Optional, Tuple
 
 
@@ -12,6 +12,18 @@ def get_n_tokens(data_path: str):
     return n_tokens
 
 
+def safe_asdict(obj):
+    if not is_dataclass(obj):
+        raise TypeError("safe_asdict() should be called on dataclass instances")
+
+    result = {}
+    for f in fields(obj):
+        value = getattr(obj, f.name, None)
+        if value is not None:
+            result[f.name] = value
+    return result
+
+
 @dataclass
 class ModelConfig:
     vocab_size: int = 64000
@@ -20,6 +32,7 @@ class ModelConfig:
     n_layer: int = 48
     fsdp_layer_wrap: bool = True
     activation_checkpointing: bool = True
+    ssm_cfg_layer: str = "Mamba1"
 
 
 @dataclass
@@ -47,7 +60,7 @@ class DataConfig:
     text_percentage: float = field(init=False)
 
     # def __post_init__(self):
-    #     # self.code_percentage = sum(p.weight for p in self.code_paths)
+    #     self.code_percentage = sum(p.weight for p in self.code_paths)
     #     self.text_percentage = sum(p.weight for p in self.text_paths)
 
 
@@ -88,6 +101,7 @@ class TrainerConfig:
     save_folder: str = "checkpoints"
     auto_log_hparams: bool = True
     autoresume: bool = True
+    save_num_checkpoints_to_keep: int = 1
 
 
 @dataclass
@@ -105,10 +119,7 @@ def instantiate_data_config(TEXT_PATHS, CODE_PATHS, N_TOTAL_TOKENS):
         (path, get_n_tokens(path) / N_TOTAL_TOKENS, 0) for path in TEXT_PATHS
     ]
 
-    text_paths = [
-        PathConfig(path=path)
-        for path in text_weights
-    ]
+    text_paths = [PathConfig(path=path) for path in text_weights]
 
     data_config = DataConfig(
         text_paths=text_paths,
@@ -140,8 +151,7 @@ def write_config_to_yaml(
         yaml.dump(config, file, sort_keys=False)
 
 
-# def load_config_from_yaml(file_name: str = "config.yaml"):
-def load_config_from_yaml(file_name: str = "config_mambarabic.yaml"):
+def load_config_from_yaml(file_name: str = "config.yaml"):
     with open(file_name, "r") as file:
         config = yaml.safe_load(file)
     model_config = ModelConfig(**config["model"])
