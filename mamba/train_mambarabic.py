@@ -1,5 +1,5 @@
-from torch import optim
 import torch
+from torch import optim
 
 from composer import Trainer
 from composer.algorithms import GradientClipping
@@ -139,6 +139,7 @@ def main():
     trainer = Trainer(
         run_name=general_config.full_name,
         autoresume=trainer_config.autoresume,
+        # load_path=trainer_config.load_path,
         model=model,
         optimizers=optimizer,
         schedulers=lr_scheduler,

@@ -1,11 +1,13 @@
+from bisect import bisect
+
 import numpy as np
 import torch
 from fsspec import AbstractFileSystem
 from fsspec.core import url_to_fs
-from typing import NamedTuple
+
 from itertools import count
 from torch.utils.data import DataLoader, Dataset, Sampler
-from typing import List, Dict
+from typing import List, Dict, NamedTuple
 
 
 class MambaBatch(NamedTuple):
@@ -78,6 +80,78 @@ class DatatroveFileDataset(Dataset):
     def __len__(self):
         return self._len
 
+class DatatroveFolderDataset(Dataset):
+    """
+    Dataset for a folder of .ds files
+    We loop on the dataset if asking for an index larger than the dataset size
+
+    Args:
+        folder_path (str): path to folder on S3, locally, or some other fsspec supported path
+        seq_len (int): sequence length
+        filename_pattern (Union[Pattern, str], optional): filename pattern. Defaults to None.
+        recursive (bool, optional): search recursively. Defaults to True.
+        token_size (int): size of a single token, in bytes. Usually 2 for vocab sizes < 65k and 4 for larger
+        max_tokens (int): only read at most this number of tokens
+        shuffle (bool, optional): shuffle the files in the folder. Defaults to False.
+        seed (int, optional): seed for shuffling. Defaults to 42.
+    """
+
+    def __init__(
+        self,
+        folder_path: str,
+        seq_len: int,
+        filename_pattern: str = None,
+        recursive: bool = True,
+        token_size: int = 2,
+        max_tokens: int | None = None,
+        shuffle: bool = False,
+        seed: int = 42,
+    ):
+        self.folder_path = folder_path
+        self.filename_pattern = filename_pattern
+        fs, folder_path = url_to_fs(folder_path)
+        matched_files = (
+            fs.find(folder_path, detail=False, maxdepth=1 if not recursive else None)
+            if not filename_pattern
+            else fs.glob(filename_pattern, maxdepth=1 if not recursive else None)
+        )
+        if not matched_files:
+            raise FileNotFoundError(f'No files matching "{filename_pattern}" found in {folder_path}')
+
+        self.files = []
+        remaining_tokens = max_tokens
+        for path in matched_files:
+            file_data = DatatroveFileDataset(
+                fs.unstrip_protocol(path),
+                seq_len,
+                token_size=token_size,
+                max_tokens=remaining_tokens,
+            )
+            self.files.append(file_data)
+            if remaining_tokens is not None:
+                remaining_tokens -= len(file_data) * (seq_len + 1)
+                if remaining_tokens <= 0:
+                    break
+
+        if shuffle:
+            rand = np.random.default_rng(seed)
+            ordering = rand.permutation(range(len(self.files)))
+            self.files = [self.files[i] for i in ordering]
+
+        self.lens = np.cumsum([0] + [len(f) for f in self.files]).tolist()
+
+        self.current_file = 0
+
+    def __getitem__(self, item):
+        # check if we are in the same file as before
+        if not (self.lens[self.current_file] <= item < self.lens[self.current_file + 1]):
+            # figure out current file
+            self.current_file = bisect(self.lens, item) - 1
+        # subtract file starting offset
+        return self.files[self.current_file][item - self.lens[self.current_file]]
+
+    def __len__(self):
+        return self.lens[-1] if self.lens else 0
 
 def get_mamba_dataloader(
     path: str,
@@ -92,7 +166,12 @@ def get_mamba_dataloader(
     token_size: int = 2,
 ):
     collate_fct = collate_mamba_batch
-    dataset = DatatroveFileDataset(path, seq_len, token_size, max_tokens)
+    
+    if path.endswith('.ds'):
+        dataset = DatatroveFileDataset(path, seq_len, token_size, max_tokens)
+    else:
+        dataset = DatatroveFolderDataset(path, seq_len, recursive=False, token_size=token_size, max_tokens=max_tokens)
+        
     dataloader = DataLoader(
         dataset,
         collate_fn=collate_fct,
@@ -116,6 +195,7 @@ def get_mamba_dataloader(
 
 
 class DistributedLinearSampler(Sampler):
+    
     def __init__(
         self,
         dataset: Dataset,

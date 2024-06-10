@@ -101,6 +101,7 @@ class TrainerConfig:
     save_folder: str = "checkpoints"
     auto_log_hparams: bool = True
     autoresume: bool = True
+    load_path: str | None = ""
     save_num_checkpoints_to_keep: int = 1
 
 
