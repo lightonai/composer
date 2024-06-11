@@ -1,6 +1,8 @@
 import torch
 import torch.nn.functional as F
-from mamba_ssm.models.mixer_seq_simple import MixerModel
+from mamba_ssm.models.mixer_seq_simple import MixerModel, MambaLMHeadModel
+from mamba_ssm.models.config_mamba import MambaConfig
+
 from torch import nn
 from torchmetrics.classification import MulticlassAccuracy
 from torchmetrics.text import Perplexity
@@ -146,3 +148,54 @@ class MambaModel(ComposerModel):
     #     total_flops = forward_flops + backward_flops
 
     #     return total_flops * batch_size
+    
+    
+class Mamba2Model(ComposerModel):
+    def __init__(
+        self,
+        config : MambaConfig
+        ):
+        super().__init__()
+        torch.manual_seed(SEED)
+        self._model = MambaLMHeadModel(config)
+
+        # metrics
+        self.top10_accuracy = MulticlassAccuracy(num_classes=config.vocab_size, top_k=10)
+        self.top3_accuracy = MulticlassAccuracy(num_classes=config.vocab_size, top_k=3)
+        self.perplexity = Perplexity()
+
+    def forward(self, batch: MambaBatch):
+        x = self._model(batch.input_ids)
+        return x.logits
+
+    def loss(self, outputs, batch):
+        targets = batch.target_ids
+
+        return F.cross_entropy(
+            outputs.transpose(-1, -2), targets, reduction="none"
+        ).mean()
+
+    def eval_forward(self, batch, outputs=None):
+        if outputs is not None:
+            return outputs
+        outputs = self(batch)
+        return outputs
+
+    def update_metric(self, batch, outputs, metric):
+        targets = batch.target_ids
+        if isinstance(metric, Perplexity):
+            metric.update(outputs, targets)
+        else:
+            metric.update(outputs.transpose(-1, -2), targets)
+
+    def get_metrics(self, is_train=False):
+        # defines which metrics to use in each phase of train/eval
+        return (
+            {
+                "TOP3_Accuracy": self.top3_accuracy,
+                "TOP10_Accuracy": self.top10_accuracy,
+                "Perplexity": self.perplexity,
+            }
+            if not is_train
+            else {}
+        )
