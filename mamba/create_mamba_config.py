@@ -33,6 +33,7 @@ class ModelConfig:
     fsdp_layer_wrap: bool = True
     activation_checkpointing: bool = True
     ssm_cfg_layer: str = "Mamba1"
+    headdim: int = 64
 
 
 @dataclass

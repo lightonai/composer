@@ -166,3 +166,10 @@ package-lock.json
 
 # composer
 data/
+
+# checkpoints
+**/*.pt
+
+# configs
+mamba/configs
+mamba/scripts

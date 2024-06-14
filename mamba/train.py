@@ -12,6 +12,7 @@ from composer.utils import dist
 from create_mamba_config import load_config_from_yaml, safe_asdict
 from mamba import MambaModel, Mamba2Model
 from mamba_ssm.models.config_mamba import MambaConfig
+
 # from datatrove import get_mamba_dataloader
 from gdr import get_mamba_dataloader
 from scheduler import WarmupStableDecayScheduler
@@ -42,16 +43,19 @@ def main():
         general_config,
     ) = load_config_from_yaml(args.config)
 
-    # model config 
-    cfg = MambaConfig(d_model=model_config.d_model,
-                      d_intermediate=model_config.d_intermediate,
-                      n_layer=model_config.n_layer,
-                      vocab_size=model_config.vocab_size,
-                      ssm_cfg={"layer": model_config.ssm_cfg_layer},
-                      tie_embeddings=True)
+    # model config
+    cfg = MambaConfig(
+        d_model=model_config.d_model,
+        d_intermediate=model_config.d_intermediate,
+        n_layer=model_config.n_layer,
+        vocab_size=model_config.vocab_size,
+        ssm_cfg={"layer": model_config.ssm_cfg_layer, "headdim": model_config.headdim},
+        tie_embeddings=True,
+    )
+
     # build model
     model = Mamba2Model(cfg)
-    
+
     # model = MambaModel(
     #     vocab_size=model_config.vocab_size,
     #     d_model=model_config.d_model,
@@ -61,8 +65,9 @@ def main():
     #     activation_checkpointing=model_config.activation_checkpointing,
     #     ssm_cfg={"layer": model_config.ssm_cfg_layer},
     # )
-    
+
     print(model)
+    print(sum([p.numel() for p in model.parameters()]))
     n_params_str = (
         "{:.2f}".format(sum([p.numel() for p in model.parameters()]) / 1e9) + "B"
     )

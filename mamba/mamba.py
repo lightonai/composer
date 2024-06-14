@@ -148,19 +148,18 @@ class MambaModel(ComposerModel):
     #     total_flops = forward_flops + backward_flops
 
     #     return total_flops * batch_size
-    
-    
+
+
 class Mamba2Model(ComposerModel):
-    def __init__(
-        self,
-        config : MambaConfig
-        ):
+    def __init__(self, config: MambaConfig):
         super().__init__()
         torch.manual_seed(SEED)
         self._model = MambaLMHeadModel(config)
 
         # metrics
-        self.top10_accuracy = MulticlassAccuracy(num_classes=config.vocab_size, top_k=10)
+        self.top10_accuracy = MulticlassAccuracy(
+            num_classes=config.vocab_size, top_k=10
+        )
         self.top3_accuracy = MulticlassAccuracy(num_classes=config.vocab_size, top_k=3)
         self.perplexity = Perplexity()
 
