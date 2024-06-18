@@ -164,6 +164,7 @@ def get_mamba_dataloader(
     prefetch_factor: int | None = 2,
     max_tokens: int = 100000,
     token_size: int = 2,
+    shuffle: bool = False,
 ):
     collate_fct = collate_mamba_batch
     
@@ -184,7 +185,7 @@ def get_mamba_dataloader(
         ),
         num_workers=num_workers,
         prefetch_factor=prefetch_factor,
-        shuffle=False,
+        shuffle=shuffle,
     )
     return {
         "dataloader": dataloader,

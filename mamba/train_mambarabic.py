@@ -76,6 +76,7 @@ def main():
         prefetch_factor=data_config.prefetch_factor,
         max_tokens=data_config.n_total_tokens,
         token_size=data_config.token_size,
+        shuffle=True
     )
 
     # create val dataloader
