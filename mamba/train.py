@@ -10,7 +10,7 @@ from composer.optim import CosineAnnealingWithWarmupScheduler
 from composer.utils import dist
 
 from create_mamba_config import load_config_from_yaml, safe_asdict
-from mamba import MambaModel, Mamba2Model
+from mamba import Mamba2Model
 from mamba_ssm.models.config_mamba import MambaConfig
 
 # from datatrove import get_mamba_dataloader
@@ -49,22 +49,15 @@ def main():
         d_intermediate=model_config.d_intermediate,
         n_layer=model_config.n_layer,
         vocab_size=model_config.vocab_size,
-        ssm_cfg={"layer": model_config.ssm_cfg_layer, "headdim": model_config.headdim},
-        tie_embeddings=True,
+        ssm_cfg={
+            "layer": model_config.ssm_cfg_layer,
+            "headdim": model_config.headdim
+            },
+        tie_embeddings=model_config.tie_embeddings,
     )
 
     # build model
     model = Mamba2Model(cfg)
-
-    # model = MambaModel(
-    #     vocab_size=model_config.vocab_size,
-    #     d_model=model_config.d_model,
-    #     d_intermediate=model_config.d_intermediate,
-    #     n_layer=model_config.n_layer,
-    #     fsdp_layer_wrap=model_config.fsdp_layer_wrap,
-    #     activation_checkpointing=model_config.activation_checkpointing,
-    #     ssm_cfg={"layer": model_config.ssm_cfg_layer},
-    # )
 
     print(model)
     print(sum([p.numel() for p in model.parameters()]))
@@ -103,7 +96,7 @@ def main():
         seq_len=data_config.seq_len,
         n_data_parallel=dist.get_world_size(),
         rank=dist.get_global_rank(),
-        n_samples_to_skip=1024,
+        n_samples_to_skip=0,
         num_workers=data_config.num_workers,
         prefetch_factor=None,
         # max_tokens=61571512,
@@ -154,11 +147,16 @@ def main():
     )
     speed_monitor = SpeedMonitor(window_size=general_config.window_size)
 
+
+    print(f"{trainer_config.load_path=}")
+    print(f"{fsdp_config.sharding_strategy=}")
+    print(f"{fsdp_config=}")
+    
     # trainer
     trainer = Trainer(
         run_name=general_config.full_name,
-        # autoresume=trainer_config.autoresume,
-        # load_path=trainer_config.load_path,
+        autoresume=trainer_config.autoresume,
+        load_path=trainer_config.load_path,
         model=model,
         optimizers=optimizer,
         schedulers=lr_scheduler,
@@ -167,7 +165,7 @@ def main():
         max_duration=scheduler_config.t_max,
         loggers=[wandb_logger],
         callbacks=[speed_monitor],
-        # fsdp_config=asdict(fsdp_config),
+        fsdp_config=asdict(fsdp_config) if fsdp_config.sharding_strategy is not None else None,
         precision=Precision.AMP_BF16,
         device_train_microbatch_size=data_config.micro_batch_size,
         eval_dataloader=evaluator,

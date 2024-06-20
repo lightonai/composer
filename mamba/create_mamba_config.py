@@ -34,6 +34,7 @@ class ModelConfig:
     activation_checkpointing: bool = True
     ssm_cfg_layer: str = "Mamba1"
     headdim: int = 64
+    tie_embeddings: bool = True
 
 
 @dataclass
@@ -84,7 +85,7 @@ class SchedulerConfig:
 
 @dataclass
 class FSDPConfig:
-    sharding_strategy: str = "FULL_SHARD"
+    sharding_strategy: str | None = None
     process_group: Optional[Tuple[str, str]] = None
     backward_prefetch: str = "BACKWARD_PRE"
     activation_checkpointing_reentrant: bool = True
@@ -102,7 +103,7 @@ class TrainerConfig:
     save_folder: str = "checkpoints"
     auto_log_hparams: bool = True
     autoresume: bool = True
-    load_path: str | None = ""
+    load_path: str | None = None
     save_num_checkpoints_to_keep: int = 1
 
 
